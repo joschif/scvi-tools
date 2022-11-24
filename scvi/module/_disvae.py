@@ -168,7 +168,9 @@ class DISVAE(VAE):
     ):
         """Computes the loss function for the model."""
         x = tensors[REGISTRY_KEYS.X_KEY]
-        kl_components_z = self.dkl(inference_outputs["qz"], generative_outputs["pz"])
+        kl_components_z = self.dkl(
+            inference_outputs["qz"], generative_outputs["pz"], inference_outputs["z"]
+        )
         if not self.use_observed_lib_size:
             kl_divergence_l = kl(
                 inference_outputs["ql"],
