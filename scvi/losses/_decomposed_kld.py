@@ -81,10 +81,7 @@ class DecomposedKLDivergence:
         """
 
         # Calculate KLD between prior and latent distributions
-        kl_divergence = kl(q, p)
-
-        if self.decompose_method is None:
-            return kl_divergence
+        kl_divergence = kl(q, p).sum(dim=1)
 
         log_pz, log_qz, log_qz_prod, log_qz_cond_x = self._get_kld_components(
             q.loc, q.scale, z
