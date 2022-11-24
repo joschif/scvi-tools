@@ -24,4 +24,5 @@ __all__ = [
     "MULTIVAE",
     "AmortizedLDAPyroModule",
     "JaxVAE",
+    "DISVAE",
 ]
