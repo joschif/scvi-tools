@@ -37,7 +37,7 @@ _SCVI_LATENT_QZV = "_scvi_latent_qzv"
 logger = logging.getLogger(__name__)
 
 
-class DISSCVI(
+class DISCVI(
     RNASeqMixin,
     VAEMixin,
     ArchesMixin,
