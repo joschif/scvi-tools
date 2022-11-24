@@ -10,6 +10,7 @@ from ._peakvi import PEAKVI
 from ._scanvi import SCANVI
 from ._scvi import SCVI
 from ._totalvi import TOTALVI
+from ._discvi import DISCVI
 
 __all__ = [
     "SCVI",
@@ -24,4 +25,5 @@ __all__ = [
     "AmortizedLDA",
     "utils",
     "JaxSCVI",
+    "DISCVI",
 ]
