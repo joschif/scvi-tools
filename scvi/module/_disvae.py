@@ -63,6 +63,12 @@ class DISVAE(VAE):
 
         * ``'normal'`` - Isotropic normal
         * ``'ln'`` - Logistic normal with normal params N(0, 1)
+    mi_weight
+        Weight of the Index-Code mutual information term.
+    tc_weight
+        Weight of the total correlation term.
+    kld_weight
+        Weight of the dimension-wise KL term.
     encode_covariates
         Whether to concatenate covariates to expression in encoder
     deeply_inject_covariates
