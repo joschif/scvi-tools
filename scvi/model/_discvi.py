@@ -143,6 +143,7 @@ class DISCVI(
 
         self.module = self._module_cls(
             n_input=self.summary_stats.n_vars,
+            n_cells=adata.X.shape[0],
             n_batch=n_batch,
             n_labels=self.summary_stats.n_labels,
             n_continuous_cov=self.summary_stats.get("n_extra_continuous_covs", 0),
@@ -154,6 +155,10 @@ class DISCVI(
             dispersion=dispersion,
             gene_likelihood=gene_likelihood,
             latent_distribution=latent_distribution,
+            mi_weight=mi_weight,
+            tc_weight=tc_weight,
+            kld_weight=kld_weight,
+            decompose_method=decompose_method,
             use_size_factor_key=use_size_factor_key,
             library_log_means=library_log_means,
             library_log_vars=library_log_vars,
