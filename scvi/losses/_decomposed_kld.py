@@ -11,15 +11,15 @@ def matrix_log_density_gaussian(x, mean, stdev):
     Arguments:
         x: Float value at which to compute the density. Shape: (batch_size, dim).
         mean: Float value indicating the mean. Shape: (batch_size, dim).
-        logvar: Float value indicating the standard deviation. Shape: (batch_size, dim).
+        stdev: Float value indicating the standard deviation. Shape: (batch_size, dim).
         batch_size: Integer indicating the batch size.
     Returns:
         log_density: Log density of a Gaussian. Shape: (batch_size, batch_size, dim).
     """
     batch_size, dim = x.shape
     x = x.view(batch_size, 1, dim)
-    mu = mu.view(1, batch_size, dim)
-    logvar = logvar.view(1, batch_size, dim)
+    mean = mean.view(1, batch_size, dim)
+    stdev = stdev.view(1, batch_size, dim)
     return log_density_gaussian(x, mean, stdev)
 
 
@@ -33,9 +33,6 @@ def log_density_gaussian(x, mean, stdev):
     Returns:
         log_density: Log density of a Gaussian.
     """
-    x = torch.tensor(x, dtype=torch.float32)
-    mean = torch.tensor(mean, dtype=torch.float32)
-    stdev = torch.tensor(stdev, dtype=torch.float32)
     normal_dist = Normal(mean, stdev)
     log_density = normal_dist.log_prob(x)
     return log_density
@@ -88,10 +85,10 @@ class DecomposedKLDivergence:
         )
         # Calculate the total correlation term
         # TC[z] = KL[q(z)||\prod_i z_i]
-        total_correlation = torch.mean(log_qz - log_qz_prod)
-        mutual_information = torch.mean(log_qz_cond_x - log_qz)
+        total_correlation = log_qz - log_qz_prod
+        mutual_information = log_qz_cond_x - log_qz
         # dw_kl_divergence is KL[q(z)||p(z)] instead of usual KL[q(z|x)||p(z))]
-        dw_kl_divergence = torch.mean(log_qz_prod - log_pz)
+        dw_kl_divergence = log_qz_prod - log_pz
 
         return dict(
             kld=kl_divergence,
@@ -101,7 +98,7 @@ class DecomposedKLDivergence:
         )
 
     def _get_kld_components(self, loc, scale, z):
-        batch_size = z.shape[0]
+        batch_size = torch.tensor(z.shape[0], dtype=torch.float32)
         norm_const = torch.log(batch_size * self.data_size)
 
         # Calculate log p(z)
