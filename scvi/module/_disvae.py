@@ -207,5 +207,12 @@ class DISVAE(VAE):
             loss=loss,
             reconstruction_loss=reconst_loss,
             kl_local=kl_local,
-            extra_metrics=kl_components_z,
+            extra_metrics=dict(
+                {
+                    "kld": kl_components_z["kld"].mean(),
+                    "tc": kl_components_z["tc"].mean(),
+                    "mi": kl_components_z["mi"].mean(),
+                    "dw_kld": kl_components_z["dw_kld"].mean(),
+                }
+            ),
         )
