@@ -1,7 +1,9 @@
+import math
 import torch
 from torch import logsumexp
 from torch.distributions import Normal
 from torch.distributions import kl_divergence as kl
+
 
 # Probability distribution utils
 def matrix_log_density_gaussian(x, mean, stdev):
@@ -16,10 +18,9 @@ def matrix_log_density_gaussian(x, mean, stdev):
     Returns:
         log_density: Log density of a Gaussian. Shape: (batch_size, batch_size, dim).
     """
-    batch_size, dim = x.shape
-    x = x.view(batch_size, 1, dim)
-    mean = mean.view(1, batch_size, dim)
-    stdev = stdev.view(1, batch_size, dim)
+    x = x.unsqueeze(1)
+    mean = mean.unsqueeze(0)
+    stdev = stdev.unsqueeze(0)
     return log_density_gaussian(x, mean, stdev)
 
 
@@ -80,14 +81,34 @@ class DecomposedKLDivergence:
         # Calculate KLD between prior and latent distributions
         kl_divergence = kl(q, p).sum(dim=1)
 
-        log_pz, log_qz, log_qz_prod, log_qz_cond_x = self._get_kld_components(
-            q.loc, q.scale, z
+        batch_size = torch.tensor(z.shape[0], dtype=torch.float32)
+        norm_const = torch.log(batch_size * self.data_size)
+
+        # Calculate log p(z)
+        # Zero mean and unit variance -> prior
+        zeros = torch.zeros_like(z)
+        log_pz = torch.sum(log_density_gaussian(z, zeros, 1), dim=1)
+
+        # Calculate log q(z|x)
+        log_qz_cond_x = torch.sum(log_density_gaussian(z, q.loc, q.scale), dim=1)
+        log_qz_prob = matrix_log_density_gaussian(z, q.loc, q.scale)
+
+        log_qz = logsumexp(log_qz_prob.sum(2), dim=1, keepdim=False) - norm_const
+
+        log_qz_prod = torch.sum(
+            logsumexp(log_qz_prob, dim=1, keepdim=False) - norm_const,
+            dim=1,
+            keepdim=False,
         )
+
         # Calculate the total correlation term
         # TC[z] = KL[q(z)||\prod_i z_i]
         total_correlation = log_qz - log_qz_prod
+        # Calculate the mutual information term
+        # MI[z] = KL[q(z)||\sum_i z_i]
         mutual_information = log_qz_cond_x - log_qz
-        # dw_kl_divergence is KL[q(z)||p(z)] instead of usual KL[q(z|x)||p(z))]
+        # Calculate the dimension-wise KL term
+        # KL[z] = KL[q(z)||p(z)]
         dw_kl_divergence = log_qz_prod - log_pz
 
         return dict(
@@ -96,31 +117,3 @@ class DecomposedKLDivergence:
             mi=mutual_information,
             dw_kld=dw_kl_divergence,
         )
-
-    def _get_kld_components(self, loc, scale, z):
-        batch_size = torch.tensor(z.shape[0], dtype=torch.float32)
-        norm_const = torch.log(batch_size * self.data_size)
-
-        # Calculate log p(z)
-        # Zero mean and unit variance -> prior
-        zeros = torch.zeros_like(z)
-        log_pz = torch.sum(log_density_gaussian(z, zeros, 1), axis=1)
-
-        # Calculate log q(z|x)
-        log_qz_cond_x = torch.sum(log_density_gaussian(z, loc, scale), axis=1)
-        log_qz_prob = matrix_log_density_gaussian(z, loc, scale)
-
-        log_qz = (
-            logsumexp(
-                torch.sum(log_qz_prob, axis=2, keepdims=False), axis=1, keepdims=False
-            )
-            - norm_const
-        )
-
-        log_qz_prod = torch.sum(
-            logsumexp(log_qz_prob, axis=1, keepdims=False) - norm_const,
-            axis=1,
-            keepdims=False,
-        )
-
-        return log_pz, log_qz, log_qz_prod, log_qz_cond_x
