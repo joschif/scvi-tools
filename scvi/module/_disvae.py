@@ -10,7 +10,7 @@ from scvi import REGISTRY_KEYS
 from scvi._compat import Literal
 from scvi._types import LatentDataType
 from scvi.module.base import LossOutput
-from scvi.losses import DecomposedKLDivergence
+from scvi.losses import total_correlation, hsic
 from scvi.autotune._types import Tunable
 
 
@@ -110,10 +110,9 @@ class DISVAE(VAE):
         log_variational: bool = True,
         gene_likelihood: Literal["zinb", "nb", "poisson"] = "zinb",
         latent_distribution: str = "normal",
-        mi_weight: float = 1.0,
-        tc_weight: float = 1.0,
+        disentangling_metric: Literal["hsic", "tc"] = "hsic",
+        disentangling_weight: float = 1.0,
         kld_weight: float = 1.0,
-        decompose_method: Literal["factor", "tc"] = "factor",
         encode_covariates: bool = False,
         deeply_inject_covariates: bool = True,
         use_batch_norm: Literal["encoder", "decoder", "none", "both"] = "both",
@@ -151,12 +150,9 @@ class DISVAE(VAE):
             latent_data_type,
         )
 
-        self.mi_weight = mi_weight
-        self.tc_weight = tc_weight
+        self.disentangling_metric = disentangling_metric
+        self.disentangling_weight = disentangling_weight
         self.kld_weight = kld_weight
-        self.decompose_method = decompose_method
-
-        self.dkl = DecomposedKLDivergence(data_size=n_cells)
 
     # Redefine loss to dientangeling loss
     def loss(
@@ -168,9 +164,17 @@ class DISVAE(VAE):
     ):
         """Computes the loss function for the model."""
         x = tensors[REGISTRY_KEYS.X_KEY]
-        kl_components_z = self.dkl(
-            inference_outputs["qz"], generative_outputs["pz"], inference_outputs["z"]
+        kl_divergence_z = kl(inference_outputs["qz"], generative_outputs["pz"]).sum(
+            dim=1
         )
+        if self.disentangling_metric == "hsic":
+            disentangling_loss = hsic(inference_outputs["z"], inference_outputs["z"])
+        elif self.disentangling_metric == "tc":
+            disentangling_loss = total_correlation(
+                inference_outputs["qz"].loc,
+                inference_outputs["qz"].scale,
+                inference_outputs["z"],
+            )
         if not self.use_observed_lib_size:
             kl_divergence_l = kl(
                 inference_outputs["ql"],
@@ -179,40 +183,25 @@ class DISVAE(VAE):
         else:
             kl_divergence_l = torch.tensor(0.0, device=x.device)
 
-        reconst_loss = -generative_outputs["px"].log_prob(x).sum(-1)
+        reconst_loss = -generative_outputs["px"].log_prob(x).mean(-1)
 
-        if self.decompose_method == "factor":
-            loss_z = (
-                self.kld_weight * kl_components_z["kld"]
-                + self.tc_weight * kl_components_z["tc"]
-            )
-        else:
-            loss_z = (
-                self.kld_weight * kl_components_z["dw_kld"]
-                + self.tc_weight * kl_components_z["tc"]
-                + self.mi_weight * kl_components_z["mi"]
-            )
-
-        loss_for_warmup = loss_z
+        loss_for_warmup = (
+            self.kld_weight * kl_divergence_z
+            + self.disentangling_weight * disentangling_loss
+        )
         kl_local_no_warmup = kl_divergence_l
 
         weighted_kl_local = kl_weight * loss_for_warmup + kl_local_no_warmup
 
-        loss = torch.mean(reconst_loss + weighted_kl_local)
+        # loss = torch.mean(reconst_loss + weighted_kl_local)
+        loss = torch.mean(self.disentangling_weight * disentangling_loss)
 
         kl_local = dict(
-            kl_divergence_l=kl_divergence_l, kl_divergence_z=kl_components_z["kld"]
+            kl_divergence_l=kl_divergence_l, kl_divergence_z=loss_for_warmup
         )
         return LossOutput(
             loss=loss,
             reconstruction_loss=reconst_loss,
             kl_local=kl_local,
-            extra_metrics=dict(
-                {
-                    "kld": kl_components_z["kld"].mean(),
-                    "tc": kl_components_z["tc"].mean(),
-                    "mi": kl_components_z["mi"].mean(),
-                    "dw_kld": kl_components_z["dw_kld"].mean(),
-                }
-            ),
+            extra_metrics={self.disentangling_metric: disentangling_loss.mean()},
         )

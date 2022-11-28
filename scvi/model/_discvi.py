@@ -77,16 +77,15 @@ class DISCVI(
 
         * ``'normal'`` - Normal distribution
         * ``'ln'`` - Logistic normal distribution (Normal(0, I) transformed by softmax)
-    mi_weight
-        Weight of the Index-Code mutual information term.
-    tc_weight
-        Weight of the total correlation term.
+    disentangling_metric
+        One of:
+
+        * ``'hsic'`` - HSIC objective
+        * ``'tc'`` - Total correlation objective
+    disentangling_weight
+        Weight of the disentangling metric.
     kld_weight
-        Weight of the dimension-wise KL term.
-    decompose_method
-        Decomposition method. If `None` uses regular KLD, otherwise:
-            * `'factor'` decomposes the KLD as γ*KLD + ß*TC
-            * `'tc'` decomposes the KLD as α*MI + ß*TC + γ*dwKLD
+        Weight of KL divergence loss.
     **model_kwargs
         Keyword args for :class:`~scvi.module.VAE`
 
@@ -111,10 +110,9 @@ class DISCVI(
         dispersion: Literal["gene", "gene-batch", "gene-label", "gene-cell"] = "gene",
         gene_likelihood: Literal["zinb", "nb", "poisson"] = "zinb",
         latent_distribution: Literal["normal", "ln"] = "normal",
-        mi_weight: float = 1.0,
-        tc_weight: float = 1.0,
+        disentangling_metric: Literal["hsic", "tc"] = "hsic",
+        disentangling_weight: float = 1.0,
         kld_weight: float = 1.0,
-        decompose_method: Literal["factor", "tc"] = "factor",
         **model_kwargs,
     ):
         super().__init__(adata)
@@ -155,10 +153,9 @@ class DISCVI(
             dispersion=dispersion,
             gene_likelihood=gene_likelihood,
             latent_distribution=latent_distribution,
-            mi_weight=mi_weight,
-            tc_weight=tc_weight,
+            disentangling_metric=disentangling_metric,
+            disentangling_weight=disentangling_weight,
             kld_weight=kld_weight,
-            decompose_method=decompose_method,
             use_size_factor_key=use_size_factor_key,
             library_log_means=library_log_means,
             library_log_vars=library_log_vars,
