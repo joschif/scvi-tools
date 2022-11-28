@@ -1,1 +1,1 @@
-from ._decomposed_kld import DecomposedKLDivergence
+from ._disentangling import hsic, total_correlation
