@@ -193,8 +193,8 @@ class DISVAE(VAE):
 
         weighted_kl_local = kl_weight * loss_for_warmup + kl_local_no_warmup
 
-        # loss = torch.mean(reconst_loss + weighted_kl_local)
-        loss = torch.mean(self.disentangling_weight * disentangling_loss)
+        loss = torch.mean(reconst_loss + weighted_kl_local)
+        # loss = torch.mean(self.disentangling_weight * disentangling_loss)
 
         kl_local = dict(
             kl_divergence_l=kl_divergence_l, kl_divergence_z=loss_for_warmup
